@@ -15,6 +15,28 @@ roots=(
     "waybar:$HOME/.config/waybar"
 )
 
+open_in_terminal() {
+    local cmd="$1"
+    if command -v kitty >/dev/null 2>&1; then
+        kitty bash -lc "$cmd; echo; echo 'Presiona Enter para cerrar...'; read -r"
+    else
+        notify-send "hypr-open-config" "kitty no esta instalado"
+        return 1
+    fi
+}
+
+run_action() {
+    case "$1" in
+        "sync-dotfiles")
+            # Ejecutar vía bash para no depender del bit de ejecución del archivo.
+            open_in_terminal "bash \"$HOME/.local/bin/scripts/sync-dotfiles.sh\""
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
 open_target() {
     local target="$1"
     if command -v cursor >/dev/null 2>&1; then
@@ -29,6 +51,8 @@ open_target() {
 pick_root() {
     local entries=()
     local root name dir
+
+    entries+=("ACTION sync-dotfiles :: sync-dotfiles")
 
     for root in "${roots[@]}"; do
         name="${root%%:*}"
@@ -110,6 +134,10 @@ browse_dir() {
 
 selected_root="$(pick_root)"
 [ -z "$selected_root" ] && exit 0
+if [[ "$selected_root" == ACTION* ]]; then
+    run_action "${selected_root##* :: }"
+    exit 0
+fi
 start_dir="${selected_root##* :: }"
 [ -z "$start_dir" ] && exit 0
 
@@ -120,6 +148,10 @@ while true; do
 
     selected_root="$(pick_root)"
     [ -z "$selected_root" ] && exit 0
+    if [[ "$selected_root" == ACTION* ]]; then
+        run_action "${selected_root##* :: }"
+        exit 0
+    fi
     start_dir="${selected_root##* :: }"
     [ -z "$start_dir" ] && exit 0
 done
