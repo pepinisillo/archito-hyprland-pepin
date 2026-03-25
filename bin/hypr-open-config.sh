@@ -41,8 +41,8 @@ open_target() {
     local target="$1"
     if command -v cursor >/dev/null 2>&1; then
         cursor "$target"
-    elif command -v code >/dev/null 2>&1; then
-        code "$target"
+    elif command -v antigravity >/dev/null 2>&1; then
+        antigravity "$target"
     else
         xdg-open "$target"
     fi
@@ -92,7 +92,11 @@ browse_dir() {
             fi
         done
 
-        choice="$(printf '%s\n' "${entries[@]}" | sort -u | rofi -dmenu -i -p "$prompt" -theme "$THEME")"
+        # Configurar rofi con atajos y añadir un mensaje informativo permanente usando -mesg
+        choice="$(printf '%s\n' "${entries[@]}" | sort -u | rofi -dmenu -i -p "$prompt" -theme "$THEME" -mesg "(Alt) e=terminal | c=cursor | a=antigravity" -kb-custom-1 "alt+e" -kb-custom-2 "alt+c" -kb-custom-3 "alt+a")"
+        rofi_exit=$?
+
+        [ "$rofi_exit" -eq 1 ] && exit 0 # Se presionó Esc
         [ -z "$choice" ] && exit 0
 
         if [ "$choice" = "<< volver a secciones" ]; then
@@ -117,17 +121,30 @@ browse_dir() {
             continue
         fi
 
+        # Determinar sobre qué ruta se está operando
         if [ "$path" = "$current" ]; then
-            open_target "$current"
-            exit 0
-        fi
-
-        if [ -d "$path" ]; then
+            target_to_open="$current"
+        elif [ -d "$path" ]; then
             current="$path"
             continue
+        else
+            target_to_open="$path"
         fi
 
-        open_target "$path"
+        # Acción a realizar dependiendo del atajo presionado en rofi
+        if [ "$rofi_exit" -eq 10 ]; then
+            # Atajo 1 (alt+e): Abrir con editor en la terminal
+            open_in_terminal "nano \"$target_to_open\""
+        elif [ "$rofi_exit" -eq 11 ]; then
+            # Atajo 2 (alt+c): Abrir explícitamente con cursor
+            cursor "$target_to_open" || xdg-open "$target_to_open"
+        elif [ "$rofi_exit" -eq 12 ]; then
+            # Atajo 3 (alt+a): Abrir explícitamente con antigravity
+            antigravity "$target_to_open" || xdg-open "$target_to_open"
+        else
+            # Enter normal (código 0 u otro): Usar la función open_target por defecto
+            open_target "$target_to_open"
+        fi
         exit 0
     done
 }
